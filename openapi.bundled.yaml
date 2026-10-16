@@ -1,0 +1,599 @@
+openapi: 3.0.3
+info:
+  title: Felops API
+  version: '1.0'
+  description: API for managing workspace integrations, actions, and execution history.
+servers:
+  - url: https://felops-backend.onrender.com/api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Health
+  - name: Integrations
+  - name: Actions
+  - name: Executions
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Check service health
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /integrations:
+    get:
+      tags:
+        - Integrations
+      summary: List workspace integrations
+      responses:
+        '200':
+          description: Available integrations and their connection status.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Integration'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /integrations/{integrationId}:
+    parameters:
+      - $ref: '#/components/parameters/integrationId'
+    get:
+      tags:
+        - Integrations
+      summary: Get integration details
+      responses:
+        '200':
+          description: Integration details and available actions.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required:
+                          - integration
+                          - actions
+                        properties:
+                          integration:
+                            $ref: '#/components/schemas/Integration'
+                          actions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Action'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /integrations/{integrationId}/authorize:
+    parameters:
+      - $ref: '#/components/parameters/integrationId'
+    get:
+      tags:
+        - Integrations
+      summary: Start OAuth authorization
+      description: Returns an authorization URL and state value for OAuth integrations.
+      responses:
+        '200':
+          description: OAuth authorization information.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OAuthAuthorization'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /integrations/{integrationId}/callback:
+    parameters:
+      - $ref: '#/components/parameters/integrationId'
+      - name: code
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: state
+        in: query
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - Integrations
+      summary: Complete OAuth authorization
+      responses:
+        '302':
+          description: Redirect to the frontend with the authorization result.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /integrations/{integrationId}/credentials:
+    parameters:
+      - $ref: '#/components/parameters/integrationId'
+    post:
+      tags:
+        - Integrations
+      summary: Connect an API-key integration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiKeyCredentials'
+      responses:
+        '200':
+          description: Integration connected.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Integration'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Integrations
+      summary: Disconnect an integration
+      responses:
+        '204':
+          description: Integration disconnected.
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /actions:
+    get:
+      tags:
+        - Actions
+      summary: List workspace actions
+      parameters:
+        - $ref: '#/components/parameters/integrationFilter'
+        - $ref: '#/components/parameters/search'
+      responses:
+        '200':
+          description: Actions grouped by integration.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/Action'
+  /agents/{agentId}/actions:
+    parameters:
+      - $ref: '#/components/parameters/agentId'
+    get:
+      tags:
+        - Actions
+      summary: List actions allowed for an agent
+      parameters:
+        - $ref: '#/components/parameters/integrationFilter'
+        - $ref: '#/components/parameters/search'
+      responses:
+        '200':
+          description: Agent actions grouped by integration.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/AgentAction'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /agents/{agentId}/actions/{actionId}:
+    parameters:
+      - $ref: '#/components/parameters/agentId'
+      - $ref: '#/components/parameters/actionId'
+    put:
+      tags:
+        - Actions
+      summary: Configure an action for an agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionConfiguration'
+      responses:
+        '200':
+          description: Action configuration updated.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AgentAction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /executions:
+    get:
+      tags:
+        - Executions
+      summary: List workspace execution history
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Executed actions across all workspace agents.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Execution'
+  /agents/{agentId}/executions:
+    parameters:
+      - $ref: '#/components/parameters/agentId'
+    get:
+      tags:
+        - Executions
+      summary: List execution history for an agent
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Executed actions for the selected agent.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Execution'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+    ResponseMeta:
+      type: object
+      description: Optional response metadata.
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: true
+    SuccessEnvelope:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          description: Response payload.
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+    Integration:
+      type: object
+      required:
+        - id
+        - name
+        - imageUrl
+        - status
+        - authorizationMethod
+        - type
+      properties:
+        id:
+          type: string
+          example: shopify
+        name:
+          type: string
+          example: Shopify
+        imageUrl:
+          type: string
+          format: uri
+          example: https://cdn.example.com/shopify.svg
+        status:
+          type: string
+          enum:
+            - connected
+            - not_connected
+        authorizationMethod:
+          type: string
+          enum:
+            - oauth
+            - api_key
+        type:
+          type: string
+          enum:
+            - ecommerce
+            - erp
+    ErrorDetail:
+      type: object
+      required:
+        - code
+      properties:
+        field:
+          type: string
+          description: Field associated with the error, if applicable.
+          example: email
+        code:
+          type: string
+          description: Machine-readable detail code for client-side localization.
+          example: INVALID_FORMAT
+        params:
+          type: object
+          description: Optional parameters used to construct localized messages.
+          additionalProperties: true
+          example:
+            minLength: 8
+    ApiError:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          description: Stable, machine-readable error code.
+          example: VALIDATION_ERROR
+        details:
+          type: array
+          description: Optional structured error details.
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+    ErrorEnvelope:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ApiError'
+    Action:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - integrationId
+        - integrationName
+      properties:
+        id:
+          type: string
+          example: shopify.create_order
+        name:
+          type: string
+          example: Create order
+        description:
+          type: string
+          example: Create an order in Shopify.
+        integrationId:
+          type: string
+          example: shopify
+        integrationName:
+          type: string
+          example: Shopify
+    OAuthAuthorization:
+      type: object
+      required:
+        - authorizationUrl
+        - state
+      properties:
+        authorizationUrl:
+          type: string
+          format: uri
+        state:
+          type: string
+          description: Opaque state value that must be preserved for the OAuth callback.
+    ApiKeyCredentials:
+      type: object
+      required:
+        - apiKey
+      properties:
+        apiKey:
+          type: string
+          format: password
+          minLength: 1
+          writeOnly: true
+    AgentAction:
+      allOf:
+        - $ref: '#/components/schemas/Action'
+        - type: object
+          required:
+            - allowed
+            - requireApproval
+          properties:
+            allowed:
+              type: boolean
+            requireApproval:
+              type: boolean
+    ActionConfiguration:
+      type: object
+      required:
+        - requireApproval
+      properties:
+        requireApproval:
+          type: boolean
+    Execution:
+      type: object
+      required:
+        - id
+        - actionName
+        - integrationName
+        - agentName
+        - initiatedBy
+        - timestamp
+      properties:
+        id:
+          type: string
+          example: exec_01JQ2Y6Q9M
+        actionName:
+          type: string
+          example: Create order
+        integrationName:
+          type: string
+          example: Shopify
+        agentName:
+          type: string
+          example: Order assistant
+        initiatedBy:
+          type: string
+          enum:
+            - user
+            - agent
+        timestamp:
+          type: string
+          format: date-time
+  responses:
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: INTERNAL_ERROR
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: EVENT_NOT_FOUND
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: VALIDATION_ERROR
+              details:
+                - field: email
+                  code: INVALID_FORMAT
+                - field: password
+                  code: TOO_SHORT
+                  params:
+                    minLength: 8
+  parameters:
+    integrationId:
+      name: integrationId
+      in: path
+      required: true
+      description: Integration identifier.
+      schema:
+        type: string
+    integrationFilter:
+      name: integrationId
+      in: query
+      required: false
+      schema:
+        type: string
+    search:
+      name: search
+      in: query
+      required: false
+      schema:
+        type: string
+    agentId:
+      name: agentId
+      in: path
+      required: true
+      description: Agent identifier.
+      schema:
+        type: string
+    actionId:
+      name: actionId
+      in: path
+      required: true
+      description: Action identifier.
+      schema:
+        type: string
+    page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20

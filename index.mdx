@@ -1,0 +1,70 @@
+---
+title: "Felops API: Manage Integrations, Actions, and Executions"
+sidebarTitle: "Overview"
+description: "The Felops API lets you connect integrations, control which actions your agents can run, and review execution history across your workspace."
+---
+
+The Felops API is a REST API for managing your workspace's integrations, the actions your agents can run, and the history of executed actions. This page covers the base URL, authentication, and the response and error formats every endpoint shares.
+
+## Base URL
+
+```text
+https://felops-backend.onrender.com/api/v1
+```
+
+## Authentication
+
+Every endpoint except `GET /health` requires a bearer token (JWT) in the `Authorization` header.
+
+```bash
+curl https://felops-backend.onrender.com/api/v1/integrations \
+  -H "Authorization: Bearer <your-token>"
+```
+
+## What you can do
+
+<CardGroup cols={2}>
+  <Card title="Integrations" icon="plug">
+    List integrations, connect them with OAuth or an API key, and disconnect them.
+  </Card>
+
+  <Card title="Actions" icon="bolt">
+    Browse workspace actions and configure which actions each agent can run and whether they require approval.
+  </Card>
+
+  <Card title="Executions" icon="clock-rotate-left">
+    Review executed actions across the workspace or for a single agent.
+  </Card>
+
+  <Card title="Health" icon="heart-pulse">
+    Check service status with an unauthenticated health endpoint.
+  </Card>
+</CardGroup>
+
+## Response format
+
+Successful responses wrap the payload in a `data` field. List endpoints can include a `meta` object with pagination details.
+
+```json
+{
+  "data": [],
+  "meta": { "page": 1, "limit": 20, "total": 0, "totalPages": 0 }
+}
+```
+
+Paginated endpoints accept `page` (default `1`) and `limit` (default `20`, maximum `100`) query parameters.
+
+## Errors
+
+Errors return an `error` object with a stable `code` and optional `details` for field-level problems.
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      { "field": "password", "code": "TOO_SHORT", "params": { "minLength": 8 } }
+    ]
+  }
+}
+```
